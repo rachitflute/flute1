@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>flute</title>
+  <style>
+    /* Reset margins and paddings */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+    }
+    /* Background gradient with cool blue tones */
+    .bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      background: linear-gradient(45deg, #020024, #090979, #00d4ff);
+      background-size: 400% 400%;
+      animation: gradientAnimation 15s ease infinite;
+    }
+    @keyframes gradientAnimation {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    /* Fullscreen canvas overlay for dynamic particles */
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+    /* Centered content for the company name */
+    .content {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      text-align: center;
+    }
+    .content h1 {
+      font-size: 5rem;
+      margin: 0;
+      background: linear-gradient(45deg, #f12711, #f5af19);
+      background-size: 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: textGradient 3s ease infinite;
+    }
+    @keyframes textGradient {
+      0%   { background-position: 0%; }
+      50%  { background-position: 100%; }
+      100% { background-position: 0%; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Animated background -->
+  <div class="bg"></div>
+  <!-- Canvas for animated particles -->
+  <canvas id="canvas"></canvas>
+  <!-- Company name "flute" -->
+  <div class="content">
+    <h1>flute</h1>
+  </div>
+  
+  <script>
+    (function() {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      let width, height;
+      
+      // Resize the canvas to fill the window
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+      }
+      
+      window.addEventListener('resize', resize);
+      resize();
+      
+      // Mouse position for interactivity
+      const mouse = { x: null, y: null };
+      window.addEventListener('mousemove', (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+      window.addEventListener('mouseout', () => {
+        mouse.x = null;
+        mouse.y = null;
+      });
+      
+      // Create particles with a refined blue palette
+      const particles = [];
+      const particleCount = 80;
+      
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5,
+          radius: Math.random() * 2 + 2,
+          // Restrict hue to a cool range (blue to blue-violet)
+          hue: Math.floor(Math.random() * 50) + 200, // hue between 200 and 250
+          get color() {
+            return `hsla(${this.hue}, 80%, 60%, 1)`;
+          }
+        });
+      }
+      
+      // Update particle positions with a small random drift and mouse repulsion
+      function updateParticles() {
+        for (let p of particles) {
+          // Mouse repulsion effect when within range
+          if (mouse.x !== null && mouse.y !== null) {
+            const dx = p.x - mouse.x;
+            const dy = p.y - mouse.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const minDist = 150;
+            if (distance < minDist && distance > 0) {
+              const force = (minDist - distance) / minDist;
+              p.vx += (dx / distance) * force * 0.5;
+              p.vy += (dy / distance) * force * 0.5;
+            }
+          }
+          
+          // Add a small random acceleration ("drift") so particles keep moving
+          p.vx += (Math.random() - 0.5) * 0.05;
+          p.vy += (Math.random() - 0.5) * 0.05;
+          
+          // Update particle position
+          p.x += p.vx;
+          p.y += p.vy;
+          
+          // Apply friction to smooth the movement
+          p.vx *= 0.98;
+          p.vy *= 0.98;
+          
+          // Bounce off the edges of the screen
+          if (p.x < 0 || p.x > width) p.vx *= -1;
+          if (p.y < 0 || p.y > height) p.vy *= -1;
+        }
+      }
+      
+      // Draw particles and connect nearby ones with gradient lines
+      function drawParticles() {
+        ctx.clearRect(0, 0, width, height);
+        
+        // Draw each particle as a glowing circle
+        for (let p of particles) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 15;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        
+        // Connect particles that are close enough
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxDistance = 120;
+            if (distance < maxDistance) {
+              const grad = ctx.createLinearGradient(particles[i].x, particles[i].y, particles[j].x, particles[j].y);
+              grad.addColorStop(0, particles[i].color);
+              grad.addColorStop(1, particles[j].color);
+              ctx.strokeStyle = grad;
+              ctx.lineWidth = 1;
+              ctx.globalAlpha = 1 - distance / maxDistance;
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.stroke();
+              ctx.globalAlpha = 1;
+            }
+          }
+        }
+      }
+      
+      // Animation loop
+      function animate() {
+        updateParticles();
+        drawParticles();
+        requestAnimationFrame(animate);
+      }
+      
+      animate();
+    })();
+  </script>
+</body>
+</html>
